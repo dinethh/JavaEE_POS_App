@@ -126,7 +126,7 @@
         $("#loader").css('display','block');
         $("#tblItem").empty();
         $.ajax({
-            url : "http://localhost:8080/App/pages/item",
+            url : "http://localhost:8080/jsp/pages/item",
             success : function (item) {
                 $("#loader").css('display','none');
                 for (let i in item) {

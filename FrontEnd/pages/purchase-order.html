@@ -59,8 +59,8 @@
                                         <div class="form-group">
                                             <label>Customer :</label>
                                             <select class="form-control" id="selectCusID">
-                                                <option value="1">A</option>
-                                                <option value="2">B</option>
+                                                <option value=""></option>
+
                                             </select>
                                             <span class="control-error"
                                                   id="cus-empty-error"></span>
@@ -69,7 +69,7 @@
                                     <div class="col-6">
                                         <div class="form-group">
                                             <label for="orderCustomerID">Customer ID</label>
-                                            <input class="form-control" id="orderCustomerID">
+                                            <input class="form-control" name="cid" id="orderCustomerID">
                                         </div>
                                     </div>
                                 </div>
@@ -77,19 +77,19 @@
                                     <div class="col-6">
                                         <div class="form-group">
                                             <label>Name :</label>
-                                            <input class="form-control" id="orderCustomerName" type="text">
+                                            <input class="form-control" name="name" id="orderCustomerName" type="text">
                                         </div>
                                     </div>
-                                    <!--<div class="col-6">
+                                    <div class="col-6">
                                         <div class="form-group">
                                             <label>Salary :</label>
-                                            <input class="form-control" id="orderCustomerSalary" type="text">
+                                            <input class="form-control" name="salary" id="orderCustomerSalary" type="text">
                                         </div>
-                                    </div>-->
+                                    </div>
                                     <div class="col-12">
                                         <div class="form-group">
                                             <label>Address :</label>
-                                            <input class="form-control" id="orderCustomerAddress" type="text">
+                                            <input class="form-control" name="address" id="orderCustomerAddress" type="text">
                                         </div>
                                     </div>
                                 </div>
@@ -219,11 +219,16 @@
                     </tr>
                     </thead>
                     <tbody class="bg-light text-dark" id="orderTable">
-
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
                     </tbody>
                 </table>
             </div>
-            <!---------->
         </div>
     </div>
 </main>
@@ -233,6 +238,118 @@
 
 <script>
 
+
+
+    $(document).ready(function() {
+        loadItemCode();
+        loadCusCode();
+
+        $("#selectItemCode").change(function() {
+            var selectedCode = $(this).val();
+            if (selectedCode) {
+                fetchItemDetails(selectedCode);
+            }
+        });
+        $("#selectCusID").change(function() {
+            var selectedId = $(this).val();
+            if (selectedId) {
+                fetchCusDetails(selectedId);
+            }
+        });
+    });
+
+
+    function loadItemCode() {
+        $("#selectItemCode").empty();
+        let code = $("#selectItemCode").val();
+        $.ajax({
+            url: 'http://localhost:8080/jsp/pages/item?code'+ code,
+            success: function (res) {
+                // console.log(res);
+                for (let item of res) {
+                    // console.log(item.code);
+                    let id = `<option>${item.code}</option>`;
+                    $("#selectItemCode").append(id);
+                }
+            },
+            error: function (error) {
+                alert(JSON.parse(error.responseText).message);
+            }
+        });
+
+
+    }
+
+
+
+    function fetchItemDetails(itemCode) {
+        $.ajax({
+            url: 'http://localhost:8080/jsp/pages/item',
+            data: { code: itemCode },
+            success: function(res) {
+                if (res.length > 0) {
+                    var item = res[0];
+
+                    $("#txtItemCode").val(item.code);
+                    $("#txtItemDescription").val(item.description);
+                    $("#txtItemPrice").val(item.unitPrice);
+                    $("#txtQTYOnHand").val(item.qtyOnHand);
+                }
+
+            },
+            error: function(error) {
+                console.error(error);
+            }
+        });
+    }
+
+
+    function loadCusCode() {
+        $("#selectCusID").empty();
+        let id = $("#selectCusID").val();
+        $.ajax({
+            url: 'http://localhost:8080/jsp/pages/customer?id'+id,
+            success: function (res) {
+                console.log(res);
+                for (let cus of res) {
+                    console.log(cus.id);
+                    let id = `<option>${cus.id}</option>`;
+                    $("#selectCusID").append(id);
+                }
+            },
+            error: function (error) {
+                alert(JSON.parse(error.responseText).message);
+            }
+        });
+    }
+
+    function fetchCusDetails(selectedId) {
+        $.ajax({
+            url: 'http://localhost:8080/jsp/pages/customer',
+            data:  { cusId: selectedId },
+            success: function(res) {
+
+                if (res.length > 0) {
+                    var i =0;
+                    var cus = res[i];
+                    $("#orderCustomerID").val(cus.id);
+                    $("#orderCustomerName").val(cus.name);
+                    $("#orderCustomerAddress").val(cus.address);
+                    $("#orderCustomerSalary").val("N/A");
+                    i ++;
+                }
+
+            },
+            error: function(error) {
+                console.error(error);
+            }
+        });
+    }
+
+
+
+
 </script>
+
 </body>
 </html>

@@ -2,6 +2,7 @@ package lk.ijse.pos.servlet;
 
 import javax.json.*;
 import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -13,7 +14,7 @@ import java.sql.*;
  * Date  :8/27/2023
  * Name  :JavaEE_POS_App
  */
-
+@WebServlet(urlPatterns = "/pages/item")
 public class ItemServlet extends HttpServlet {
 
     @Override
