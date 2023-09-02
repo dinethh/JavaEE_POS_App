@@ -37,7 +37,7 @@
                     <div class="card">
                         <div class="card-header bg-primary font-weight-bolder">Invoice Details</div>
                         <div class="card-body">
-                            <form>
+                            <form id="formData">
                                 <div class="row">
                                     <div class="col-6">
                                         <div class="form-group">
@@ -59,8 +59,8 @@
                                         <div class="form-group">
                                             <label>Customer :</label>
                                             <select class="form-control" id="selectCusID">
-                                                <option value=""></option>
-
+                                                <option value="1">A</option>
+                                                <option value="2">B</option>
                                             </select>
                                             <span class="control-error"
                                                   id="cus-empty-error"></span>
@@ -69,7 +69,7 @@
                                     <div class="col-6">
                                         <div class="form-group">
                                             <label for="orderCustomerID">Customer ID</label>
-                                            <input class="form-control" name="cid" id="orderCustomerID">
+                                            <input class="form-control" id="orderCustomerID">
                                         </div>
                                     </div>
                                 </div>
@@ -77,19 +77,13 @@
                                     <div class="col-6">
                                         <div class="form-group">
                                             <label>Name :</label>
-                                            <input class="form-control" name="name" id="orderCustomerName" type="text">
+                                            <input class="form-control" id="orderCustomerName" type="text">
                                         </div>
                                     </div>
-                                    <div class="col-6">
-                                        <div class="form-group">
-                                            <label>Salary :</label>
-                                            <input class="form-control" name="salary" id="orderCustomerSalary" type="text">
-                                        </div>
-                                    </div>
-                                    <div class="col-12">
+                                     <div class="col-12">
                                         <div class="form-group">
                                             <label>Address :</label>
-                                            <input class="form-control" name="address" id="orderCustomerAddress" type="text">
+                                            <input class="form-control" id="orderCustomerAddress" type="text">
                                         </div>
                                     </div>
                                 </div>
@@ -219,45 +213,34 @@
                     </tr>
                     </thead>
                     <tbody class="bg-light text-dark" id="orderTable">
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                    </tr>
+
                     </tbody>
                 </table>
             </div>
+            <!---------->
         </div>
     </div>
 </main>
 
 
 <script src="../assets/js/jquery-3.7.0.min.js"></script>
-
 <script>
 
+    // genarateOrderID
+    var genarateOrderID = 0;
+
+    $("#txtOrderID").val('0-00' + (genarateOrderID += 1));
 
 
+    //--------------------------
     $(document).ready(function() {
         loadItemCode();
         loadCusCode();
 
-        $("#selectItemCode").change(function() {
-            var selectedCode = $(this).val();
-            if (selectedCode) {
-                fetchItemDetails(selectedCode);
-            }
-        });
-        $("#selectCusID").change(function() {
-            var selectedId = $(this).val();
-            if (selectedId) {
-                fetchCusDetails(selectedId);
-            }
-        });
+
     });
 
+    // loadItem
 
     function loadItemCode() {
         $("#selectItemCode").empty();
@@ -265,9 +248,9 @@
         $.ajax({
             url: 'http://localhost:8080/jsp/pages/item?code'+ code,
             success: function (res) {
-                // console.log(res);
+                console.log(res);
                 for (let item of res) {
-                    // console.log(item.code);
+                    console.log(item.code);
                     let id = `<option>${item.code}</option>`;
                     $("#selectItemCode").append(id);
                 }
@@ -276,39 +259,38 @@
                 alert(JSON.parse(error.responseText).message);
             }
         });
-
-
     }
 
 
+    $("#selectItemCode").click(
+        function fetchItemDetails() {
+            let id = $("#selectItemCode").val();
+            $.ajax({
+                url: 'http://localhost:8080/jsp/pages/purchaseOrder?option=items&code='+ id,
+                // data: { code: itemCode },
+                success: function(res) {
 
-    function fetchItemDetails(itemCode) {
-        $.ajax({
-            url: 'http://localhost:8080/jsp/pages/item',
-            data: { code: itemCode },
-            success: function(res) {
-                if (res.length > 0) {
-                    var item = res[0];
 
-                    $("#txtItemCode").val(item.code);
-                    $("#txtItemDescription").val(item.description);
-                    $("#txtItemPrice").val(item.unitPrice);
-                    $("#txtQTYOnHand").val(item.qtyOnHand);
+                    $("#txtItemCode").val(res.code);
+                    $("#txtItemDescription").val(res.description);
+                    $("#txtItemPrice").val(res.unitPrice);
+                    $("#txtQTYOnHand").val(res.qtyOnHand);
+
+
+                },
+                error: function(error) {
+                    console.error(error);
                 }
-
-            },
-            error: function(error) {
-                console.error(error);
-            }
-        });
-    }
-
-
+            });
+        }
+    );
+    // loadCus
     function loadCusCode() {
         $("#selectCusID").empty();
         let id = $("#selectCusID").val();
         $.ajax({
             url: 'http://localhost:8080/jsp/pages/customer?id'+id,
+            method: 'GET',
             success: function (res) {
                 console.log(res);
                 for (let cus of res) {
@@ -323,33 +305,172 @@
         });
     }
 
-    function fetchCusDetails(selectedId) {
-        $.ajax({
-            url: 'http://localhost:8080/jsp/pages/customer',
-            data:  { cusId: selectedId },
-            success: function(res) {
+    $("#selectCusID").click(
 
-                if (res.length > 0) {
-                    var i =0;
-                    var cus = res[i];
-                    $("#orderCustomerID").val(cus.id);
-                    $("#orderCustomerName").val(cus.name);
-                    $("#orderCustomerAddress").val(cus.address);
-                    $("#orderCustomerSalary").val("N/A");
-                    i ++;
+        function fetchCusDetails() {
+            let id = $("#selectCusID").val();
+            $.ajax({
+                url: 'http://localhost:8080/jsp/pages/purchaseOrder?option=customer&id='+ id,
+                // data:  { id: selectedId },
+                // dataType: "json",
+                success: function(res) {
+
+                    // console.log(id)
+                    $("#orderCustomerID").val(res.id);
+                    $("#orderCustomerName").val(res.name);
+                    $("#orderCustomerAddress").val(res.address);
+
+                },
+                error: function(error) {
+                    console.error(error);
                 }
+            });
+        }
 
-            },
-            error: function(error) {
-                console.error(error);
-            }
-        });
+    );
+    // date
+    const currentDate = new Date();
+
+    // Format the current date as yyyy-MM-dd
+    const formattedDate = formatDate(currentDate);
+
+    $('#txtDate').val(formattedDate);
+
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
+    let orderItems= [];
+
+    $("#btnAddToTable").click(function() {
+        let itemCode = $("#txtItemCode").val();
+        let itemName = $("#txtItemDescription").val();
+        let price = parseFloat($("#txtItemPrice").val());
+        let quantity = parseInt($("#txtQty").val());
+
+        let total = price * quantity;
+
+        orderItems.push({
+            code: itemCode,
+            description: itemName,
+            unitPrice: price,
+            quantity: quantity,
+            total: total
+        });
+
+        $("#orderCustomerID").val("");
+        $("#orderCustomerName").val("");
+        $("#orderCustomerAddress").val("");
+        $("#txtItemCode").val("");
+        $("#txtItemDescription").val("");
+        $("#txtItemPrice").val("");
+        $("#txtQTYOnHand").val("");
+        $("#txtQty").val("");
+
+        updateOrderTable();
+
+        updateTotals();
+    });
 
 
+    function updateOrderTable() {
+        let tableBody = $("#orderTable");
+        tableBody.empty();
+
+        for (let item of orderItems) {
+            let row = `<tr>
+            <td>${item.code}</td>
+            <td>${item.description}</td>
+            <td>${item.unitPrice}</td>
+            <td>${item.quantity}</td>
+            <td>${item.total}</td>
+        </tr>`;
+            tableBody.append(row);
+        }
+    }
+
+    function updateTotals() {
+        let totalAmount = 0;
+
+        for (let item of orderItems) {
+            totalAmount += item.total;
+        }
+
+        let subtotalAmount = totalAmount;
+        let cashAmount = parseFloat($("#txtCash").val()) || 0;
+        let discountAmount = parseFloat($("#txtDiscount").val()) || 0;
+
+        let balanceAmount = cashAmount - discountAmount - subtotalAmount;
+
+        $("#total").text(totalAmount.toFixed(2));
+        $("#subtotal").text(subtotalAmount.toFixed(2));
+        $("#txtBalance").val(balanceAmount.toFixed(2));
+    }
+
+    let disTOGave = 0;
+
+    $('#txtDiscount').on('keyup', function() {
+        let dis = parseFloat($('#txtDiscount').val());
+        let tot = parseFloat($('#txtBalance').val());
+
+        console.log(dis + "==" + tot);
+
+        let totMin = tot * (dis / 100);
+        console.log("Discount Amount: " + totMin);
+
+        let subTot = tot - totMin;
+        disTOGave = totMin;
+
+        $('#subtotal').val(subTot);
+        updateTotals();
+    });
+
+    $("#btnSubmitOrder").click(function () {
+        let oid = $("#txtOrderID").val();
+        let date=   $("#txtDate").val();
+        let odCusId=  $("#orderCustomerID").val();
+        let odDetail=getAllOdrderDetail();
+
+        let ob={
+            oid:oid,
+            date:date,
+            odCusId:odCusId,
+            odDetail:odDetail
+        }
+
+        $.ajax({
+            url:"http://localhost:8080/jsp/pages/purchaseOrder",
+            method: "post",
+            data: JSON.stringify(ob),
+            contentType: "application/json",
+            dataType:"json",
+
+            success: function (res) {
+                alert(res.message);
+                // ClearValue();
+            },
+            error: function (error) {
+                alert(JSON.parse(error.responseText).message);
+            }
+        });
+    });
+
+    function getAllOdrderDetail() {
+        let rows = $("#orderTable").children().length;
+        let array = [];
+        for (let i = 0; i < rows; i++) {
+            let code = $("#orderTable tr:eq(" + i + ") td:eq(0)").text();
+            let byQty = $("#orderTable tr:eq(" + i + ") td:eq(3)").text();
+            let qty = $("#orderTable tr:eq(" + i + ") td:eq(4)").text();
+            let price = $("#orderTable tr:eq(" + i + ") td:eq(2)").text();
+            array.push({code: code, byQty: byQty, qty: qty, price: price});
+
+        }
+    }
 
 </script>
-
 </body>
 </html>

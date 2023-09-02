@@ -1,8 +1,5 @@
 package lk.ijse.pos.servlet;
 
-import lk.ijse.pos.dto.CustomerDTO;
-import lk.ijse.pos.dto.ItemDTO;
-
 import javax.json.*;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -11,6 +8,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.sql.*;
+
+import static java.lang.Class.forName;
 
 /**
  * Author:Dineth Panditha
@@ -22,157 +21,187 @@ public class PurchaseOderServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        String option = req.getParameter("option");
+
+
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/thogakade", "root", "root123");
+            forName("com.mysql.jdbc.Driver");
+            Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/thogakade", "root", "1234");
 
-            PreparedStatement pstm = connection.prepareStatement("SELECT code FROM item");
-            ResultSet resultSet = pstm.executeQuery();
+            switch (option) {
+                case "customer":
+                    String id1 = req.getParameter("id");
+                    PreparedStatement pstm = connection.prepareStatement("select * from customer where id=?");
 
-            resp.addHeader("Access-Control-Allow-Origin","*");
+                    pstm.setString(1, id1);
 
-            JsonArrayBuilder arrayBuilder = Json.createArrayBuilder();
-            ItemDTO itemDTO = new ItemDTO();
+                    ResultSet rst = pstm.executeQuery();
+                    resp.addHeader("Content-Type", "application/json");
+                    resp.addHeader("Access-Control-Allow-Origin", "*");
 
-            while (resultSet.next()){
-                itemDTO.setCode(resultSet.getString(1));
-                JsonObjectBuilder code = Json.createObjectBuilder();
-                code.add("code",itemDTO.getCode());
 
-                arrayBuilder.add(code.build());
+                    JsonObjectBuilder customerBuilder = Json.createObjectBuilder();
+
+                    while (rst.next()) {
+
+                        String id = rst.getString(1);
+                        String name = rst.getString(2);
+                        String address = rst.getString(3);
+
+
+                        customerBuilder.add("id", id);
+                        customerBuilder.add("name", name);
+                        customerBuilder.add("address", address);
+
+                    }
+
+                    resp.getWriter().print(customerBuilder.build());
+
+                    break;
+                case "items":
+                    String code1 = req.getParameter("code");
+                    PreparedStatement pstm1 = connection.prepareStatement("select * from item where code=?");
+
+                    pstm1.setString(1, code1);
+                    ResultSet rst1 = pstm1.executeQuery();
+
+                    resp.addHeader("Content-Type", "application/json");
+                    resp.addHeader("Access-Control-Allow-Origin", "*");
+
+//                    JsonArrayBuilder allItem = Json.createArrayBuilder();
+
+                    JsonObjectBuilder itemBuilder = Json.createObjectBuilder();
+                    while (rst1.next()) {
+
+                        String code = rst1.getString(1);
+                        String name = rst1.getString(2);
+                        int qtyOnHand = rst1.getInt(3);
+                        double unitPrice = rst1.getDouble(4);
+
+
+                        itemBuilder.add("code", code);
+                        itemBuilder.add("description", name);
+                        itemBuilder.add("qtyOnHand", qtyOnHand);
+                        itemBuilder.add("unitPrice", unitPrice);
+
+                    }
+
+                    resp.getWriter().print(itemBuilder.build());
+                    break;
             }
 
-            PreparedStatement cusPstm = connection.prepareStatement("SELECT id FROM customer");
-            ResultSet cusDetails = cusPstm.executeQuery();
 
-            CustomerDTO customerDTO = new CustomerDTO();
-            while (cusDetails.next()){
-                customerDTO.setId(cusDetails.getString(1));
-                JsonObjectBuilder customer = Json.createObjectBuilder();
-                customer.add("id",customerDTO.getId());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
 
-                arrayBuilder.add(customer.build());
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        resp.addHeader("Access-Control-Allow-Origin", "*");
+        resp.addHeader("Content-Type", "application/json");
+
+
+
+
+        try {
+            forName("com.mysql.jdbc.Driver");
+            Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/thogakade", "root", "1234");
+            connection.setAutoCommit(false);
+
+            JsonReader reader = Json.createReader(req.getReader());
+            JsonObject jsonObject = reader.readObject();
+
+            String orderId = jsonObject.getString("oid");
+            String orderDate = jsonObject.getString("date");
+            String customerId = jsonObject.getString("odCusId");
+            System.out.println(orderId + orderDate + customerId);
+
+            PreparedStatement orderStatement = connection.prepareStatement("INSERT INTO orders VALUES(?,?,?)");
+            orderStatement.setString(1, orderId);
+            orderStatement.setString(2, orderDate);
+            orderStatement.setString(3, customerId);
+
+
+            if (orderStatement.executeUpdate() > 0) {
+                connection.rollback();
+                connection.setAutoCommit(true);
+                throw new SQLException("Order Not Added");
+
             }
 
-            resp.getWriter().print(arrayBuilder.build());
+            JsonArray odDetail = jsonObject.getJsonArray("odDetail");
+            for (JsonValue orderDetail : odDetail) {
+                JsonObject odObject = orderDetail.asJsonObject();
+                String itemCode = odObject.getString("code");
+                String qty = odObject.getString("qty");
+                String byQty = odObject.getString("byQty");
+                String unitPrice = odObject.getString("price");
+
+                PreparedStatement pstm2 = connection.prepareStatement("insert into orderdetails values(?,?,?,?)");
+                pstm2.setObject(1, orderId);
+                pstm2.setObject(2, itemCode);
+                pstm2.setObject(3, byQty);
+                pstm2.setObject(4, unitPrice);
+
+                if (!(pstm2.executeUpdate() > 0)) {
+                    connection.rollback();
+                    connection.setAutoCommit(true);
+                    throw new SQLException("Order Details Not added.!");
+                }
+
+
+                PreparedStatement pstm3 = connection.prepareStatement("update item set qty=? where code=?");
+                pstm3.setObject(2, itemCode);
+                int bvQty = Integer.parseInt(byQty);
+                int avQty = Integer.parseInt(qty);
+                pstm3.setInt(1, (avQty - bvQty));
+                if (!(pstm3.executeUpdate() > 0)) {
+                    connection.rollback();
+                    connection.setAutoCommit(true);
+                    resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    resp.getWriter().println(Json.createObjectBuilder()
+                            .add("Status", "Error")
+                            .add("message", "Order Details Not updated")
+                            .add("data", "")
+                            .build()
+                            .toString());
+                    return;
+                }
+            }
+            connection.commit();
+            connection.setAutoCommit(true);
+            resp.setStatus(HttpServletResponse.SC_OK);
+            resp.getWriter().println(Json.createObjectBuilder()
+                    .add("Status", "OK")
+                    .add("message", "Successfully Added")
+                    .add("data", "")
+                    .build()
+                    .toString());
 
         } catch (ClassNotFoundException | SQLException e) {
-            e.printStackTrace();
+            JsonObjectBuilder error = Json.createObjectBuilder();
+            error.add("Status", "Error");
+            error.add("message", e.getLocalizedMessage());
+            error.add("data", "");
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.getWriter().print(error.build());
+
         }
-    }
 
-    @Override
-    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        resp.addHeader("Access-Control-Allow-Origin","*");
 
-        JsonReader reader = Json.createReader(req.getReader());
-        JsonObject jsonObject = reader.readObject();
-
-        String id = jsonObject.getString("id");
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/thogakade", "root", "root123");
-
-            CustomerDTO customerDTO = new CustomerDTO();
-            customerDTO.setId(id);
-
-            PreparedStatement pstm = connection.prepareStatement("SELECT * FROM customer WHERE id=?");
-            pstm.setObject(1,customerDTO.getId());
-
-            ResultSet resultSet = pstm.executeQuery();
-
-            JsonObjectBuilder objectBuilder = Json.createObjectBuilder();
-
-            while (resultSet.next()){
-                String id1 = resultSet.getString(1);
-                String name = resultSet.getString(2);
-                String address = resultSet.getString(3);
-
-                objectBuilder.add("id",id1);
-                objectBuilder.add("name",name);
-                objectBuilder.add("address",address);
-
-            }
-
-            resp.getWriter().print(objectBuilder.build());
-
-        } catch (ClassNotFoundException e) {
-
-            JsonObjectBuilder error = Json.createObjectBuilder();
-            error.add("state","Error");
-            error.add("message",e.getLocalizedMessage());
-            error.add("Data"," ");
-            resp.setStatus(500);
-            resp.getWriter().print(error.build());
-
-        } catch (SQLException e) {
-            JsonObjectBuilder error = Json.createObjectBuilder();
-            error.add("state","Error");
-            error.add("message",e.getLocalizedMessage());
-            error.add("Data"," ");
-            resp.getWriter().print(error.build());
-        }
-    }
-
-    @Override
-    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        resp.addHeader("Access-Control-Allow-Origin","*");
-
-        JsonReader reader = Json.createReader(req.getReader());
-        JsonObject jsonObject = reader.readObject();
-
-        String code = jsonObject.getString("code");
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/thogakade", "root", "root123");
-
-            ItemDTO itemDTO = new ItemDTO();
-            itemDTO.setCode(code);
-
-            PreparedStatement pstm = connection.prepareStatement("SELECT * FROM item WHERE code=?");
-            pstm.setObject(1,itemDTO.getCode());
-
-            ResultSet resultSet = pstm.executeQuery();
-
-            JsonObjectBuilder objectBuilder = Json.createObjectBuilder();
-
-            while (resultSet.next()){
-                String code1 = resultSet.getString(1);
-                String name = resultSet.getString(2);
-                String qty = String.valueOf(resultSet.getInt(3));
-                String price = String.valueOf(resultSet.getDouble(4));
-
-                objectBuilder.add("code",code1);
-                objectBuilder.add("name",name);
-                objectBuilder.add("qty",qty);
-                objectBuilder.add("price",price);
-            }
-
-            resp.getWriter().print(objectBuilder.build());
-
-        } catch (ClassNotFoundException e) {
-
-            JsonObjectBuilder error = Json.createObjectBuilder();
-            error.add("state","Error");
-            error.add("message",e.getLocalizedMessage());
-            error.add("Data"," ");
-            resp.setStatus(500);
-            resp.getWriter().print(error.build());
-
-        } catch (SQLException e) {
-            JsonObjectBuilder error = Json.createObjectBuilder();
-            error.add("state","Error");
-            error.add("message",e.getLocalizedMessage());
-            error.add("Data"," ");
-            resp.getWriter().print(error.build());
-        }
     }
 
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        resp.addHeader("Access-Control-Allow-Origin","*");
-        resp.addHeader("Access-Control-Allow-Methods","PUT, DELETE");
-        resp.addHeader("Access-Control-Allow-Headers","content-type");
+        resp.addHeader("Access-Control-Allow-Origin", "*");
+        resp.addHeader("Access-Control-Allow-Headers", "Content-Type");
+        resp.addHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE");
     }
 }
 
